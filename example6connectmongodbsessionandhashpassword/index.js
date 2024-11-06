@@ -1,13 +1,26 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const app = express();
+const session=require("express-session");
+const mongoose_session=require("connect-mongodb-session")(session);
 require("dotenv").config();
 const bcrypt=require("bcrypt");
+const store=new mongoose_session({
+  uri:process.env.MONGO_URI,
+  collection:"sessions"
+})
 // global middleware
-app.use(express.json());
 
+app.use(express.json());
+app.use(session({
+  secret:process.env.SECRET,
+  store:store,
+  resave:false,
+  saveUninitialized:false,
+}))
 // file_imports
 const Usermodel = require("./modles/Usermodel");
+const isAuth = require("./middlewares/isauthmiddleware");
 
 // connect Db
 mongoose
@@ -65,10 +78,17 @@ app.post("/login",async(req,res)=>{
 
         // compair password
         const bcryptpass=await bcrypt.compare(password,userData.password)
-        console.log(bcryptpass);
+        console.log(userData);
 
         if(bcryptpass)
         {
+          req.session.isAuth=true;
+          req.session.user={
+ userId:userData._id,
+ email:userData.email,
+ username:userData.name,
+          }
+ console.log(req.session);
             return res.status(201).json("user login sucessfully");
         }
     else{
@@ -81,6 +101,12 @@ app.post("/login",async(req,res)=>{
             error:error
         })
     }
+})
+
+// dashboardApi
+app.get("/dashbord",isAuth,(req,res)=>{
+  
+  return res.send("you are in dasborad page")
 })
 
 const PORT = parseInt(process.env.PORT);
